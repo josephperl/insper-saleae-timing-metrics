@@ -79,14 +79,19 @@ python medir.py
   Quantas tasks/funções vai medir [1]: 2
 
   Sinal 1
-  Nome da task/função (ex: mpu_task, calc_fft, isr_botao) [sinal0]: mpu_task
+  Nome da task/função (ex: task_btn, task_led, isr_botao) [sinal0]: task_btn
   GPIO que a task/função coloca em 1 e 0 (ex: 10): 10
   Canal do Saleae onde o fio está ligado [0]: 0
   Período esperado em ms [Enter = automático]: 10
   Deadline em ms (Enter = igual ao período) [Enter = automático]:
 
   Sinal 2
-  ...
+  Nome da task/função (ex: task_btn, task_led, isr_botao) [sinal1]: task_led
+  GPIO que a task/função coloca em 1 e 0 (ex: 10): 11
+  Canal do Saleae onde o fio está ligado [1]: 1
+  Período esperado em ms [Enter = automático]: 500
+  Deadline em ms (Enter = igual ao período) [Enter = automático]:
+
   Duração de cada captura em segundos [10]:
   Taxa de amostragem em MS/s (10 = resolução de 0,1 us) [10]:
 
@@ -112,7 +117,7 @@ Depois salva tudo em `config.json` e **gera dois arquivos ao lado do seu `main.c
 
 ```
   Firmware atualizado em meu_projeto:
-    metrics_pins.h  (PIN_MPU_TASK=10, PIN_CALC_FFT=11)
+    metrics_pins.h  (PIN_TASK_BTN=10, PIN_TASK_LED=11)
     rtos_metrics.h  (copiado)
 ```
 
@@ -125,23 +130,54 @@ Nas próximas vezes ele só pergunta se quer manter a configuração.
 
 ### 2. Instrumente o código
 
-No seu código você só escreve três coisas (exemplos completos em
-[Instrumentar o código](#instrumentar-o-código)):
+Você mexe no código em três lugares:
+
+| O quê | Onde | Quantas vezes |
+|---|---|---|
+| `#include "metrics_pins.h"` | Topo do arquivo | Uma vez em **cada `.c`** que tem task/função medida |
+| `METRICS_INIT_ALL();` | Começo da `main` | **Uma vez** só (inicializa todos os GPIOs) |
+| `START` e `END` com o `PIN_...` dela | Dentro da task/função | Em **toda** task/função que você configurou no `medir.py`. Cada uma com o **seu** pino |
+
+O nome do pino vem do nome que você deu no `medir.py`: `task_btn` → `PIN_TASK_BTN`, `task_led` → `PIN_TASK_LED`.
+
+Exemplo com as duas tasks configuradas acima (FreeRTOS):
 
 ```c
-#include "metrics_pins.h"                // 1. no topo de cada .c que tem task/função medida
+#include "metrics_pins.h"                      // uma vez, no topo
+
+void task_btn(void *p) {                       // lê o botão a cada 10 ms
+    for (;;) {
+        METRICS_TASK_START(PIN_TASK_BTN);      // GPIO 10 = 1
+        if (!gpio_get(BTN_PIN)) {
+            xSemaphoreGive(sem_led);
+        }
+        METRICS_TASK_END(PIN_TASK_BTN);        // GPIO 10 = 0
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+void task_led(void *p) {                       // pisca o LED a cada 500 ms
+    for (;;) {
+        METRICS_TASK_START(PIN_TASK_LED);      // GPIO 11 = 1
+        gpio_put(LED_PIN, !gpio_get(LED_PIN));
+        METRICS_TASK_END(PIN_TASK_LED);        // GPIO 11 = 0
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
 
 int main() {
-    METRICS_INIT_ALL();                  // 2. no começo da main
-    ...
-}
-
-void calc_fft(void) {
-    METRICS_FUNC_START(PIN_CALC_FFT);    // 3. GPIO = 1 no início
-    ...
-    METRICS_FUNC_END(PIN_CALC_FFT);      //    GPIO = 0 no fim
+    stdio_init_all();
+    METRICS_INIT_ALL();                        // uma vez, no começo da main
+    /* ... seus gpio_init do botão e do LED ... */
+    xTaskCreate(task_btn, "btn", 1024, NULL, 2, NULL);
+    xTaskCreate(task_led, "led", 1024, NULL, 1, NULL);
+    vTaskStartScheduler();
 }
 ```
+
+Se configurou 4 tasks, são 4 pares de `START`/`END`, cada um com o seu `PIN_...`. Task ou função sem
+`START`/`END` aparece como `SEM SINAL`. Bare metal, ISR e mais detalhes em
+[Instrumentar o código](#instrumentar-o-código).
 
 Compile e grave na placa.
 
@@ -216,31 +252,41 @@ GPIO em **1** = task/função executando. GPIO em **0** = parada.
 
 O `medir.py` já gera o `metrics_pins.h` (GPIOs) e copia o `rtos_metrics.h` (macros) para a pasta do
 seu `main.c`. As macros só colocam o GPIO em 1 (`START`) e em 0 (`END`). Os nomes `PIN_...` vêm do
-nome que você deu no `medir.py` (`mpu_task` → `PIN_MPU_TASK`).
+nome que você deu no `medir.py` (`task_led` → `PIN_TASK_LED`).
 
 Feito para Pico / Pico 2. Para outra placa, troque só as 3 macros `METRICS_GPIO_*` do `rtos_metrics.h`.
 
 ### Tasks do FreeRTOS
 
+Regra: `START` logo **depois** do ponto em que a task acorda e `END` logo **antes** de ela bloquear de novo.
+Assim o tempo em 1 é só o trabalho da task, sem a espera.
+
 ```c
 #include "metrics_pins.h"
 
-void mpu_task(void *p) {
+void task_led(void *p) {
     for (;;) {
-        METRICS_TASK_START(PIN_MPU_TASK);   // logo DEPOIS de acordar
-        /* ... trabalho da task ... */
-        METRICS_TASK_END(PIN_MPU_TASK);     // logo ANTES de dormir/bloquear
-        vTaskDelay(pdMS_TO_TICKS(10));
+        METRICS_TASK_START(PIN_TASK_LED);   // logo DEPOIS de acordar
+        gpio_put(LED_PIN, !gpio_get(LED_PIN));
+        METRICS_TASK_END(PIN_TASK_LED);     // logo ANTES de dormir/bloquear
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
-}
-
-int main() {
-    METRICS_INIT_ALL();
-    /* xTaskCreate(...); vTaskStartScheduler(); */
 }
 ```
 
-Task disparada por fila: o `START` vai logo **depois** do `xQueueReceive` retornar.
+Task que espera fila ou semáforo: o `START` vai logo **depois** do `xQueueReceive` / `xSemaphoreTake` retornar.
+
+```c
+void task_led(void *p) {
+    for (;;) {
+        if (xSemaphoreTake(sem_led, portMAX_DELAY) == pdTRUE) {
+            METRICS_TASK_START(PIN_TASK_LED);   // acordou: GPIO = 1
+            gpio_put(LED_PIN, !gpio_get(LED_PIN));
+            METRICS_TASK_END(PIN_TASK_LED);     // vai esperar de novo: GPIO = 0
+        }
+    }
+}
+```
 
 ### Funções bare metal (sem FreeRTOS)
 
@@ -250,23 +296,46 @@ usa FreeRTOS, o `metrics_pins.h` já liga o modo bare metal sozinho.
 ```c
 #include "metrics_pins.h"
 
-void calc_fft(void) {
-    METRICS_FUNC_START(PIN_CALC_FFT);   // GPIO = 1 na primeira linha
-    /* ... trabalho da função ... */
-    METRICS_FUNC_END(PIN_CALC_FFT);     // GPIO = 0 na última linha (antes de cada return)
+void le_botao(void) {
+    METRICS_FUNC_START(PIN_LE_BOTAO);     // GPIO = 1 na primeira linha
+    btn_apertado = !gpio_get(BTN_PIN);
+    METRICS_FUNC_END(PIN_LE_BOTAO);       // GPIO = 0 na última linha
+}
+
+void atualiza_led(void) {
+    METRICS_FUNC_START(PIN_ATUALIZA_LED);
+    if (!btn_apertado) {
+        METRICS_FUNC_END(PIN_ATUALIZA_LED);  // END antes de CADA return
+        return;
+    }
+    gpio_put(LED_PIN, !gpio_get(LED_PIN));
+    METRICS_FUNC_END(PIN_ATUALIZA_LED);
 }
 
 int main() {
     stdio_init_all();
     METRICS_INIT_ALL();
     while (true) {
-        calc_fft();
+        le_botao();
+        atualiza_led();
         sleep_ms(10);
     }
 }
 ```
 
 > Se a função tem mais de um `return`, coloque o `END` antes de **cada** um. Senão o GPIO fica em 1.
+
+### Callback / ISR (ex: botão por interrupção)
+
+Mesma coisa: `START` na primeira linha do callback e `END` na última.
+
+```c
+void btn_callback(uint gpio, uint32_t events) {
+    METRICS_FUNC_START(PIN_BTN_CALLBACK);
+    flag_btn = 1;
+    METRICS_FUNC_END(PIN_BTN_CALLBACK);
+}
+```
 
 ### Stack (só FreeRTOS)
 1. Antes do include, coloque `#define METRICS_TIMING 0` e `#define METRICS_STACK 1`
@@ -275,16 +344,18 @@ int main() {
 3. Crie o monitor:
 
 ```c
-TaskHandle_t h_mpu;
+TaskHandle_t h_btn, h_led;
 static const metrics_stack_entry_t stack_list[] = {
-    { &h_mpu, "mpu_task", 4096 },     // mesmo nome do medir.py, mesmo tamanho do xTaskCreate
+    { &h_btn, "task_btn", 1024 },     // mesmo nome do medir.py, mesmo tamanho do xTaskCreate
+    { &h_led, "task_led", 1024 },
     { NULL, NULL, 0 }
 };
-xTaskCreate(mpu_task, "mpu", 4096, NULL, 2, &h_mpu);
+xTaskCreate(task_btn, "btn", 1024, NULL, 2, &h_btn);
+xTaskCreate(task_led, "led", 1024, NULL, 1, &h_led);
 METRICS_START_STACK_MONITOR(stack_list);
 ```
 
-O firmware imprime `[STACK] mpu_task hwm=... size=...` a cada 1 s. No `medir.py`, use **[s]** e cole essas linhas.
+O firmware imprime `[STACK] task_btn hwm=... size=...` a cada 1 s. No `medir.py`, use **[s]** e cole essas linhas.
 
 ---
 

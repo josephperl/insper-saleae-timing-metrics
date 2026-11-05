@@ -83,7 +83,7 @@ def coluna_do_canal(header, canal):
 
 
 def ler_stack(caminho):
-    """Linhas do firmware no formato:  [STACK] mpu_task hwm=123 size=1024   (em words)."""
+    """Linhas do firmware no formato:  [STACK] task_btn hwm=123 size=1024   (em words)."""
     res = {}
     if not caminho or not os.path.exists(caminho):
         return res

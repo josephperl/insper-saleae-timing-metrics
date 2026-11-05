@@ -102,7 +102,7 @@ def assistente_config(atual=None):
     for i in range(n):
         ant = sinais_atuais[i] if i < len(sinais_atuais) else {}
         print(f"\n  Sinal {i + 1}")
-        nome = perguntar("Nome da task/função (ex: mpu_task, calc_fft, isr_botao)", ant.get("nome", f"sinal{i}"))
+        nome = perguntar("Nome da task/função (ex: task_btn, task_led, isr_botao)", ant.get("nome", f"sinal{i}"))
         while True:
             gpio = perguntar("GPIO que a task/função coloca em 1 e 0 (ex: 10)", ant.get("gpio"), int,
                              minimo=0, maximo=29)
