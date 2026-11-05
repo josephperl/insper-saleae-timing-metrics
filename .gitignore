@@ -1,0 +1,16 @@
+# resultados locais (cada aluno gera os seus)
+capturas/
+comparacoes/
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+
+# saidas geradas ao analisar o exemplo
+exemplo/*.png
+exemplo/metricas.*
+
+# config gerada pelo medir.py (cada um tem a sua)
+config.json

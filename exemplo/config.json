@@ -1,0 +1,22 @@
+{
+  "_ajuda": "Config do modo script (capturar.py / analisar.py). Veja a secao 'Modo script' do README.",
+
+  "captura": {
+    "porta_automation": 10430,
+    "sample_rate_hz": 10000000,
+    "duracao_s": 10
+  },
+
+  "analise": {
+    "tolerancia_periodo": 0.10,
+    "graficos": ["timeline", "execucao", "periodo", "jitter", "resumo"],
+    "timeline_janela_ms": null
+  },
+
+  "sinais": [
+    { "nome": "mpu_task",    "canal": 0, "periodo_ms": 10, "deadline_ms": null },
+    { "nome": "fusion_task", "canal": 1, "periodo_ms": 10, "deadline_ms": null },
+    { "nome": "uart_task",   "canal": 2, "periodo_ms": 10, "deadline_ms": null },
+    { "nome": "pwm_task",    "canal": 3, "periodo_ms": 10, "deadline_ms": null }
+  ]
+}

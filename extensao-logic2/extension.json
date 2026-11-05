@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "apiVersion": "1.0.0",
+  "author": "Insper - Computacao Embarcada",
+  "name": "Timing Metrics",
+  "description": "Metricas de tempo de qualquer sinal digital: periodo, frequencia, jitter, largura de pulso (WCET/BCET), duty cycle e deadline miss rate.",
+  "extensions": {
+    "Timing Metrics": {
+      "type": "DigitalMeasurement",
+      "entryPoint": "TimingMetrics.TimingMetrics",
+      "metrics": {
+        "pulsos":       { "name": "Pulsos (bordas de subida)",       "notation": "N" },
+        "frequencia":   { "name": "Frequencia media",                "notation": "N Hz" },
+        "periodoMedio": { "name": "Periodo medio",                   "notation": "N us" },
+        "periodoMin":   { "name": "Periodo minimo",                  "notation": "N us" },
+        "periodoMax":   { "name": "Periodo maximo",                  "notation": "N us" },
+        "jitterPP":     { "name": "Jitter pico-a-pico",              "notation": "N us" },
+        "jitterStd":    { "name": "Jitter desvio padrao",            "notation": "N us" },
+        "larguraMax":   { "name": "Largura max em alto (WCET)",      "notation": "N us" },
+        "larguraMin":   { "name": "Largura min em alto (BCET)",      "notation": "N us" },
+        "larguraMedia": { "name": "Largura media em alto",           "notation": "N us" },
+        "dutyCycle":    { "name": "Duty cycle / Utilizacao",         "notation": "N %" },
+        "missRate":     { "name": "Deadline miss rate (T = mediana)", "notation": "N %" }
+      }
+    }
+  }
+}
