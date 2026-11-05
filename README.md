@@ -390,15 +390,6 @@ python comparar.py capturas/<A> capturas/<B>
 
 Sem a Automation: no Logic 2, use **File → Export Data → CSV** (canais digitais) e rode `python analisar.py <pasta>`.
 
-### Extensão para dentro do Logic 2 (opcional)
-
-[`extensao-logic2/`](extensao-logic2/) tem uma extensão de medição que mostra as mesmas métricas (um
-canal por vez) direto no Logic 2:
-
-1. No Logic 2, abra o painel **Extensions** (barra lateral direita).
-2. Clique em **⋮** → **Load Existing Extension…** e selecione `extensao-logic2/extension.json`.
-3. Selecione um trecho de um canal com **Shift + arrastar**. As métricas "Timing Metrics" aparecem na caixa de medição.
-
 ---
 
 ## Estrutura
