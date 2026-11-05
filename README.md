@@ -148,9 +148,7 @@ Exemplo com as duas tasks configuradas acima (FreeRTOS):
 void task_btn(void *p) {                       // lê o botão a cada 10 ms
     for (;;) {
         METRICS_TASK_START(PIN_TASK_BTN);      // GPIO 10 = 1
-        if (!gpio_get(BTN_PIN)) {
-            xSemaphoreGive(sem_led);
-        }
+        /* ... seu código da task_btn ... */
         METRICS_TASK_END(PIN_TASK_BTN);        // GPIO 10 = 0
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -159,7 +157,7 @@ void task_btn(void *p) {                       // lê o botão a cada 10 ms
 void task_led(void *p) {                       // pisca o LED a cada 500 ms
     for (;;) {
         METRICS_TASK_START(PIN_TASK_LED);      // GPIO 11 = 1
-        gpio_put(LED_PIN, !gpio_get(LED_PIN));
+        /* ... seu código da task_led ... */
         METRICS_TASK_END(PIN_TASK_LED);        // GPIO 11 = 0
         vTaskDelay(pdMS_TO_TICKS(500));
     }
@@ -251,7 +249,9 @@ GPIO em **1** = task/função executando. GPIO em **0** = parada.
 ## Instrumentar o código
 
 O `medir.py` já gera o `metrics_pins.h` (GPIOs) e copia o `rtos_metrics.h` (macros) para a pasta do
-seu `main.c`. As macros só colocam o GPIO em 1 (`START`) e em 0 (`END`). Os nomes `PIN_...` vêm do
+seu `main.c`. As macros só colocam o GPIO em 1 (`START`) e em 0 (`END`). **Você só adiciona essas duas
+linhas em volta do código que já existe.** Nos exemplos abaixo, `/* ... seu código ... */` é o que a
+sua task/função já faz. Os nomes `PIN_...` vêm do
 nome que você deu no `medir.py` (`task_led` → `PIN_TASK_LED`).
 
 Feito para Pico / Pico 2. Para outra placa, troque só as 3 macros `METRICS_GPIO_*` do `rtos_metrics.h`.
@@ -267,7 +267,7 @@ Assim o tempo em 1 é só o trabalho da task, sem a espera.
 void task_led(void *p) {
     for (;;) {
         METRICS_TASK_START(PIN_TASK_LED);   // logo DEPOIS de acordar
-        gpio_put(LED_PIN, !gpio_get(LED_PIN));
+        /* ... seu código ... */
         METRICS_TASK_END(PIN_TASK_LED);     // logo ANTES de dormir/bloquear
         vTaskDelay(pdMS_TO_TICKS(500));
     }
@@ -281,7 +281,7 @@ void task_led(void *p) {
     for (;;) {
         if (xSemaphoreTake(sem_led, portMAX_DELAY) == pdTRUE) {
             METRICS_TASK_START(PIN_TASK_LED);   // acordou: GPIO = 1
-            gpio_put(LED_PIN, !gpio_get(LED_PIN));
+            /* ... seu código ... */
             METRICS_TASK_END(PIN_TASK_LED);     // vai esperar de novo: GPIO = 0
         }
     }
@@ -298,17 +298,18 @@ usa FreeRTOS, o `metrics_pins.h` já liga o modo bare metal sozinho.
 
 void le_botao(void) {
     METRICS_FUNC_START(PIN_LE_BOTAO);     // GPIO = 1 na primeira linha
-    btn_apertado = !gpio_get(BTN_PIN);
+    /* ... seu código ... */
     METRICS_FUNC_END(PIN_LE_BOTAO);       // GPIO = 0 na última linha
 }
 
-void atualiza_led(void) {
+void atualiza_led(void) {                 // função com return no meio
     METRICS_FUNC_START(PIN_ATUALIZA_LED);
-    if (!btn_apertado) {
+    /* ... seu código ... */
+    if (/* alguma condição sua */) {
         METRICS_FUNC_END(PIN_ATUALIZA_LED);  // END antes de CADA return
         return;
     }
-    gpio_put(LED_PIN, !gpio_get(LED_PIN));
+    /* ... seu código ... */
     METRICS_FUNC_END(PIN_ATUALIZA_LED);
 }
 
@@ -332,7 +333,7 @@ Mesma coisa: `START` na primeira linha do callback e `END` na última.
 ```c
 void btn_callback(uint gpio, uint32_t events) {
     METRICS_FUNC_START(PIN_BTN_CALLBACK);
-    flag_btn = 1;
+    /* ... seu código ... */
     METRICS_FUNC_END(PIN_BTN_CALLBACK);
 }
 ```
